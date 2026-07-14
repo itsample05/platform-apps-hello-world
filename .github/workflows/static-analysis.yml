@@ -1,0 +1,98 @@
+name: Static analysis
+
+on:
+  workflow_call:
+    inputs:
+      publish-pages: { required: true, type: boolean }
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Run tests, build, and quality checks
+        run: mvn -B verify checkstyle:check spotbugs:check
+
+      - name: Build quality dashboard
+        run: |
+          mkdir -p target/site/jacoco site
+          cp -R target/site/jacoco site/coverage 2>/dev/null || true
+          cp target/checkstyle-result.xml site/ 2>/dev/null || true
+          cp target/spotbugsXml.xml site/spotbugs.xml 2>/dev/null || true
+          short_sha="${GITHUB_SHA::7}"
+          generated_at="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          cat > site/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Quality Dashboard</title>
+            <style>
+              :root { font-family: system-ui, sans-serif; color: #172b4d; background: #f5f7fb; }
+              body { max-width: 820px; margin: 0 auto; padding: 56px 24px; }
+              header { margin-bottom: 28px; }
+              h1 { margin: 0 0 8px; font-size: 2rem; }
+              p, span { color: #52637a; }
+              .meta { font-size: .9rem; }
+              .reports { display: grid; gap: 14px; padding: 0; list-style: none; }
+              a { display: block; padding: 20px; color: #0c4a8a; background: #fff; border: 1px solid #d9e2f0; border-radius: 12px; text-decoration: none; box-shadow: 0 3px 10px rgba(23,43,77,.06); }
+              a:hover { border-color: #1677d2; transform: translateY(-1px); }
+              strong { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+            </style>
+          </head>
+          <body>
+            <header>
+              <h1>Quality Dashboard</h1>
+              <p>Build validation reports for this release candidate.</p>
+              <p class="meta">Commit <strong id="sha"></strong> &middot; Generated <span id="generated-at"></span></p>
+            </header>
+            <ul class="reports">
+              <li><a href="coverage/index.html"><strong>Code coverage</strong><span>View the JaCoCo coverage report.</span></a></li>
+              <li><a href="checkstyle-result.xml"><strong>Style checks</strong><span>View the Checkstyle results.</span></a></li>
+              <li><a href="spotbugs.xml"><strong>Static analysis</strong><span>View the SpotBugs findings.</span></a></li>
+            </ul>
+            <script>document.getElementById('sha').textContent = 'COMMIT_SHA'; document.getElementById('generated-at').textContent = 'GENERATED_AT';</script>
+          </body>
+          </html>
+          EOF
+          sed -i "s/COMMIT_SHA/$short_sha/; s/GENERATED_AT/$generated_at/" site/index.html
+
+      - name: Upload quality-report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-${{ github.sha }}
+          path: site
+          retention-days: 30
+
+      - name: Upload GitHub Pages artifact
+        if: ${{ inputs.publish-pages }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publish-report:
+    needs: analysis
+    if: ${{ inputs.publish-pages }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy quality dashboard to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

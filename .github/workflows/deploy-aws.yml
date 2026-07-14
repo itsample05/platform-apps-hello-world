@@ -1,0 +1,96 @@
+name: Deploy ECS
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+      deployment-environment:
+        required: true
+        type: string
+
+jobs:
+  deploy-to-ecs:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.deployment-environment }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read deployment configuration
+        id: config
+        shell: bash
+        run: |
+          environment="${{ inputs.deployment-environment }}"
+          [[ "$environment" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || {
+            echo "Invalid deployment environment: $environment" >&2
+            exit 1
+          }
+          config=".github/deployments/$environment.json"
+          jq -e '
+            (.environment == $environment) and
+            (.app_name | type == "string" and test("^[a-z0-9]+([._-][a-z0-9]+)*$")) and
+            (.aws_region | type == "string" and test("^[a-z]{2}-[a-z]+-[0-9]+$")) and
+            (.aws_deploy_role_arn | type == "string" and test("^arn:aws:iam::[0-9]{12}:role/.+$")) and
+            (.ecs_cluster | type == "string" and length > 0) and
+            (.ecs_service | type == "string" and length > 0) and
+            (.ecs_task_family | type == "string" and length > 0)
+          ' --arg environment "$environment" "$config" >/dev/null
+
+          echo "aws-region=$(jq -r '.aws_region' "$config")" >> "$GITHUB_OUTPUT"
+          echo "role-to-assume=$(jq -r '.aws_deploy_role_arn' "$config")" >> "$GITHUB_OUTPUT"
+          echo "cluster=$(jq -r '.ecs_cluster' "$config")" >> "$GITHUB_OUTPUT"
+          echo "service=$(jq -r '.ecs_service' "$config")" >> "$GITHUB_OUTPUT"
+          echo "task-family=$(jq -r '.ecs_task_family' "$config")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.config.outputs.role-to-assume }}
+          aws-region: ${{ steps.config.outputs.aws-region }}
+
+      - name: Download active task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "${{ steps.config.outputs.task-family }}" \
+            --query taskDefinition \
+            --output json > task-definition.json
+
+      - name: Clean task definition
+        run: |
+          jq 'del(
+            .taskDefinitionArn,
+            .revision,
+            .status,
+            .requiresAttributes,
+            .compatibilities,
+            .registeredAt,
+            .registeredBy
+          )' task-definition.json > clean.json
+
+      - name: Get container name
+        id: container
+        run: |
+          echo "name=$(jq -r '.containerDefinitions[0].name' clean.json)" >> $GITHUB_OUTPUT
+
+      - name: Render new task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: clean.json
+          container-name: ${{ steps.container.outputs.name }}
+          image: ${{ inputs.image }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ steps.config.outputs.service }}
+          cluster: ${{ steps.config.outputs.cluster }}
+          wait-for-service-stability: true

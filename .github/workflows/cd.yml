@@ -1,0 +1,79 @@
+name: CD - Promote and Deploy
+
+run-name: Promote ${{ github.sha }} from dev to production
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: main-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  pages: write
+
+jobs:
+  image-config:
+    name: Read dev image configuration
+    runs-on: ubuntu-latest
+    outputs:
+      dockerhub-username: ${{ steps.config.outputs.dockerhub-username }}
+      app-name: ${{ steps.config.outputs.app-name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate dev image configuration
+        id: config
+        shell: bash
+        run: |
+          config=.github/deployments/dev.json
+          jq -e '
+            (.environment == "dev") and
+            (.app_name | type == "string" and test("^[a-z0-9]+([._-][a-z0-9]+)*$")) and
+            (.dockerhub_username | type == "string" and length > 0)
+          ' "$config" >/dev/null
+          echo "app-name=$(jq -r '.app_name' "$config")" >> "$GITHUB_OUTPUT"
+          echo "dockerhub-username=$(jq -r '.dockerhub_username' "$config")" >> "$GITHUB_OUTPUT"
+
+  static-analysis:
+    uses: ./.github/workflows/static-analysis.yml
+    with:
+      publish-pages: true
+    secrets: inherit
+
+  build-and-scan-image:
+    needs: [image-config, static-analysis]
+    uses: ./.github/workflows/build-and-push.yml
+    with:
+      image-tag: ${{ github.sha }}
+      dockerhub-username: ${{ needs.image-config.outputs.dockerhub-username }}
+      expected-image-name: ${{ needs.image-config.outputs.app-name }}
+      publish-image: true
+      publish-latest: true
+      run-trivy: true
+    secrets: inherit
+
+  deploy-dev:
+    needs: [image-config, build-and-scan-image]
+    uses: ./.github/workflows/deploy-aws.yml
+    with:
+      image: ${{ needs.image-config.outputs.dockerhub-username }}/${{ needs.build-and-scan-image.outputs.image-name }}:${{ github.sha }}
+      deployment-environment: dev
+
+  deploy-int:
+    needs: [image-config, build-and-scan-image, deploy-dev]
+    uses: ./.github/workflows/deploy-aws.yml
+    with:
+      image: ${{ needs.image-config.outputs.dockerhub-username }}/${{ needs.build-and-scan-image.outputs.image-name }}:${{ github.sha }}
+      deployment-environment: int
+
+  deploy-production:
+    needs: [image-config, build-and-scan-image, deploy-int]
+    uses: ./.github/workflows/deploy-aws.yml
+    with:
+      image: ${{ needs.image-config.outputs.dockerhub-username }}/${{ needs.build-and-scan-image.outputs.image-name }}:${{ github.sha }}
+      deployment-environment: production
