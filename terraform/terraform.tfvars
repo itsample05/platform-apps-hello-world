@@ -1,0 +1,5 @@
+aws_region        = "us-east-1"
+app_name          = "hello-world"
+cluster_name      = "platform-apps-dev-cluster"
+container_image   = "public.ecr.aws/nginx/nginx:latest"
+github_repository = "itsample05/platform-apps-hello-world"

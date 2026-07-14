@@ -1,0 +1,5 @@
+aws_region        = "us-east-1"
+app_name          = "hello-world"
+cluster_name      = "platform-apps-dev-cluster"
+container_image   = "YOUR_DOCKERHUB_USER/hello-world-app:bootstrap"
+github_repository = "YOUR_GITHUB_USER/YOUR_REPOSITORY"
