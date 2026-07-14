@@ -25,13 +25,12 @@ Update the values:
 aws_region        = "us-east-1"
 app_name          = "hello-world"
 cluster_name      = "platform-apps-dev-cluster"
-container_image   = "YOUR_DOCKERHUB_USERNAME/hello-world-app:bootstrap" #  or give public.ecr.aws/nginx/nginx:latest
 github_repository = "YOUR_GITHUB_USERNAME/YOUR_REPOSITORY"
 ```
 
 > 💡 **Bootstrap Image**
 >
-The nginx/bootstrap image allows ECS to create the initial service before the CI/CD pipeline publishes the first application image.Subsequent deployment then overrides the bootstrap image with the actual docker image during CD deployment.
+During initial setup the service will be created with a demo nginx image.The nginx/bootstrap image allows ECS to create the initial service before the CI/CD pipeline publishes the first application image.Subsequent deployment then overrides the bootstrap image with the actual docker image during CD deployment.
 
 ---
 
@@ -72,11 +71,8 @@ Run the bootstrap helper script from the repository root:
 bash scripts/bootstrap.sh dev
 ```
 
-The script verifies the IAM role and writes a ready-to-commit configuration file at [`.github/deployments/production.json`](../.github/deployments/production.json). Commit it on a branch and open a pull request. Do not add credentials to this file.
+The script verifies the IAM role and writes a ready-to-commit configuration file at [`.github/deployments/dev.json`](../.github/deployments/dev.json). Commit it on a branch and open a pull request. Do not add credentials to this file.
 
-If `container_image` is a Docker Hub image such as `my-docker-user/hello-world:bootstrap`, bootstrap uses `my-docker-user` automatically. If it is an ECR image, another registry, or does not include a namespace, bootstrap prompts for the Docker Hub username used by CD.
-
-Next, configure the following GitHub Actions credentials:
 
 **Repository → Settings → Secrets and variables → Actions**
 
