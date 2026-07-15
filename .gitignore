@@ -1,8 +1,4 @@
 target/
-.terraform/
-*.tfstate
-*.tfstate.*
-terraform.tfvars
 .env
 .idea/
 .vscode/

@@ -32,22 +32,39 @@ jobs:
             echo "Invalid deployment environment: $environment" >&2
             exit 1
           }
-          config=".github/deployments/$environment.json"
-          jq -e '
-            (.environment == $environment) and
-            (.app_name | type == "string" and test("^[a-z0-9]+([._-][a-z0-9]+)*$")) and
-            (.aws_region | type == "string" and test("^[a-z]{2}-[a-z]+-[0-9]+$")) and
-            (.aws_deploy_role_arn | type == "string" and test("^arn:aws:iam::[0-9]{12}:role/.+$")) and
-            (.ecs_cluster | type == "string" and length > 0) and
-            (.ecs_service | type == "string" and length > 0) and
-            (.ecs_task_family | type == "string" and length > 0)
-          ' --arg environment "$environment" "$config" >/dev/null
+          config=".github/deployments/$environment.env"
+          read_value() {
+            local key="$1" value
+            value="$(awk -v key="$key" '
+              $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+                sub("^[[:space:]]*" key "[[:space:]]*=[[:space:]]*", "")
+                sub(/^"/, "")
+                sub(/"[[:space:]]*$/, "")
+                print
+              }
+            ' "$config")"
+            [[ -n "$value" && "$value" != *$'\n'* ]] || {
+              echo "Missing or duplicate $key in $config" >&2
+              exit 1
+            }
+            printf '%s' "$value"
+          }
 
-          echo "aws-region=$(jq -r '.aws_region' "$config")" >> "$GITHUB_OUTPUT"
-          echo "role-to-assume=$(jq -r '.aws_deploy_role_arn' "$config")" >> "$GITHUB_OUTPUT"
-          echo "cluster=$(jq -r '.ecs_cluster' "$config")" >> "$GITHUB_OUTPUT"
-          echo "service=$(jq -r '.ecs_service' "$config")" >> "$GITHUB_OUTPUT"
-          echo "task-family=$(jq -r '.ecs_task_family' "$config")" >> "$GITHUB_OUTPUT"
+          aws_region="$(read_value aws_region)"
+          role_to_assume="$(read_value github_deploy_role_arn)"
+          cluster="$(read_value ecs_cluster_name)"
+          service="$(read_value ecs_service_name)"
+          task_family="$(read_value ecs_task_family)"
+
+          [[ "$aws_region" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]] || { echo "Invalid aws_region in $config" >&2; exit 1; }
+          [[ "$role_to_assume" =~ ^arn:aws:iam::[0-9]{12}:role/.+$ ]] || { echo "Invalid github_deploy_role_arn in $config" >&2; exit 1; }
+          [[ -n "$cluster" && -n "$service" && -n "$task_family" ]] || { echo "ECS deployment values cannot be empty" >&2; exit 1; }
+
+          echo "aws-region=$aws_region" >> "$GITHUB_OUTPUT"
+          echo "role-to-assume=$role_to_assume" >> "$GITHUB_OUTPUT"
+          echo "cluster=$cluster" >> "$GITHUB_OUTPUT"
+          echo "service=$service" >> "$GITHUB_OUTPUT"
+          echo "task-family=$task_family" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

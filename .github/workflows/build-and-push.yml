@@ -39,8 +39,8 @@ jobs:
             exit 1
           }
           [[ -z "$EXPECTED_IMAGE_NAME" || "$image_name" == "$EXPECTED_IMAGE_NAME" ]] || {
-            echo "Maven artifactId produces image name '$image_name', but the Terraform app_name is '$EXPECTED_IMAGE_NAME'." >&2
-            echo "Keep the Maven artifactId and Terraform app_name aligned before releasing." >&2
+            echo "Maven artifactId produces image name '$image_name', but the expected image name is '$EXPECTED_IMAGE_NAME'." >&2
+            echo "Keep the Maven artifactId and expected image name aligned before releasing." >&2
             exit 1
           }
           echo "image-name=$image_name" >> "$GITHUB_OUTPUT"
