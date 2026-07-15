@@ -22,22 +22,37 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       dockerhub-username: ${{ steps.config.outputs.dockerhub-username }}
-      app-name: ${{ steps.config.outputs.app-name }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate dev image configuration
+      - name: Read dev image configuration
         id: config
         shell: bash
         run: |
-          config=.github/deployments/dev.json
-          jq -e '
-            (.environment == "dev") and
-            (.app_name | type == "string" and test("^[a-z0-9]+([._-][a-z0-9]+)*$")) and
-            (.dockerhub_username | type == "string" and length > 0)
-          ' "$config" >/dev/null
-          echo "app-name=$(jq -r '.app_name' "$config")" >> "$GITHUB_OUTPUT"
-          echo "dockerhub-username=$(jq -r '.dockerhub_username' "$config")" >> "$GITHUB_OUTPUT"
+          config=.github/deployments/dev.env
+          read_value() {
+            local key="$1" value
+            value="$(awk -v key="$key" '
+              $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+                sub("^[[:space:]]*" key "[[:space:]]*=[[:space:]]*", "")
+                sub(/^"/, "")
+                sub(/"[[:space:]]*$/, "")
+                print
+              }
+            ' "$config")"
+            [[ -n "$value" && "$value" != *$'\n'* ]] || {
+              echo "Missing or duplicate $key in $config" >&2
+              exit 1
+            }
+            printf '%s' "$value"
+          }
+
+          dockerhub_username="$(read_value dockerhub_username)"
+          [[ "$dockerhub_username" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || {
+            echo "Invalid dockerhub_username in $config" >&2
+            exit 1
+          }
+          echo "dockerhub-username=$dockerhub_username" >> "$GITHUB_OUTPUT"
 
   static-analysis:
     uses: ./.github/workflows/static-analysis.yml
@@ -51,7 +66,6 @@ jobs:
     with:
       image-tag: ${{ github.sha }}
       dockerhub-username: ${{ needs.image-config.outputs.dockerhub-username }}
-      expected-image-name: ${{ needs.image-config.outputs.app-name }}
       publish-image: true
       publish-latest: true
       run-trivy: true
