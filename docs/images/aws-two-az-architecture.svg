@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Two Availability Zone ECS deployment architecture</title>
+  <desc id="desc">Internet traffic reaches an application load balancer, which routes to one ECS Fargate task in each private subnet across two availability zones. GitHub Actions deploys through OIDC, and Docker Hub provides tagged images.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#425466"/></marker>
+    <style>
+      .title{font:700 28px Arial,sans-serif;fill:#172033}.label{font:600 18px Arial,sans-serif;fill:#172033}.small{font:15px Arial,sans-serif;fill:#425466}.box{fill:#fff;stroke:#cbd5e1;stroke-width:2}.aws{fill:#f8fafc;stroke:#64748b;stroke-width:3}.vpc{fill:#eff6ff;stroke:#3b82f6;stroke-width:2}.az{fill:#ffffff;stroke:#94a3b8;stroke-width:2}.public{fill:#fff7ed;stroke:#f97316;stroke-width:2}.private{fill:#f0fdf4;stroke:#22c55e;stroke-width:2}.service{fill:#e0f2fe;stroke:#0284c7;stroke-width:2}.task{fill:#ecfdf5;stroke:#16a34a;stroke-width:2}.flow{fill:none;stroke:#425466;stroke-width:3;marker-end:url(#arrow)}.dashed{stroke-dasharray:8 7}
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <text x="800" y="48" text-anchor="middle" class="title">Amazon ECS Fargate deployment across two Availability Zones</text>
+
+  <rect x="320" y="85" width="1220" height="700" rx="18" class="aws"/>
+  <text x="355" y="125" class="label">AWS Region: us-east-1</text>
+  <rect x="350" y="145" width="1160" height="600" rx="15" class="vpc"/>
+  <text x="380" y="182" class="label">VPC</text>
+
+  <rect x="390" y="210" width="510" height="490" rx="14" class="az"/>
+  <text x="420" y="246" class="label">Availability Zone 1</text>
+  <rect x="420" y="270" width="450" height="115" rx="10" class="public"/>
+  <text x="445" y="304" class="label">Public subnet</text>
+  <rect x="475" y="322" width="340" height="45" rx="8" class="service"/>
+  <text x="645" y="351" text-anchor="middle" class="label">Application Load Balancer</text>
+  <rect x="420" y="420" width="450" height="235" rx="10" class="private"/>
+  <text x="445" y="454" class="label">Private subnet</text>
+  <rect x="510" y="500" width="270" height="85" rx="10" class="task"/>
+  <text x="645" y="536" text-anchor="middle" class="label">ECS Fargate task</text>
+  <text x="645" y="560" text-anchor="middle" class="small">Spring Boot application</text>
+
+  <rect x="960" y="210" width="510" height="490" rx="14" class="az"/>
+  <text x="990" y="246" class="label">Availability Zone 2</text>
+  <rect x="990" y="270" width="450" height="115" rx="10" class="public"/>
+  <text x="1015" y="304" class="label">Public subnet</text>
+  <rect x="1045" y="322" width="340" height="45" rx="8" class="service"/>
+  <text x="1215" y="351" text-anchor="middle" class="label">Application Load Balancer</text>
+  <rect x="990" y="420" width="450" height="235" rx="10" class="private"/>
+  <text x="1015" y="454" class="label">Private subnet</text>
+  <rect x="1080" y="500" width="270" height="85" rx="10" class="task"/>
+  <text x="1215" y="536" text-anchor="middle" class="label">ECS Fargate task</text>
+  <text x="1215" y="560" text-anchor="middle" class="small">Spring Boot application</text>
+
+  <rect x="1000" y="640" width="330" height="65" rx="10" class="box"/>
+  <text x="1165" y="680" text-anchor="middle" class="label">CloudWatch Logs</text>
+
+  <rect x="45" y="180" width="200" height="65" rx="10" class="box"/>
+  <text x="145" y="220" text-anchor="middle" class="label">Internet</text>
+  <rect x="45" y="330" width="200" height="70" rx="10" class="box"/>
+  <text x="145" y="360" text-anchor="middle" class="label">GitHub Actions</text>
+  <text x="145" y="384" text-anchor="middle" class="small">OIDC deployment</text>
+  <rect x="45" y="490" width="200" height="70" rx="10" class="box"/>
+  <text x="145" y="520" text-anchor="middle" class="label">Docker Hub</text>
+  <text x="145" y="544" text-anchor="middle" class="small">SHA-tagged image</text>
+
+  <path d="M245 212 H475" class="flow"/>
+  <path d="M645 367 V492" class="flow"/>
+  <path d="M1215 367 V492" class="flow"/>
+  <path d="M780 542 H1070" class="flow dashed"/>
+  <path d="M645 585 V670 H990" class="flow"/>
+  <path d="M1215 585 V640" class="flow"/>
+  <path d="M245 365 H330 V160 H930 V500" class="flow"/>
+  <path d="M245 525 H300 V615 H490" class="flow"/>
+  <text x="755" y="145" text-anchor="middle" class="small">GitHub OIDC → scoped AWS deploy role</text>
+</svg>

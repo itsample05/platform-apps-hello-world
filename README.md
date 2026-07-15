@@ -1,7 +1,5 @@
 # Hello World on Amazon ECS
 
-[![CI](https://github.com/itsample05/hello-world-cicd/actions/workflows/ci.yml/badge.svg)](https://github.com/itsample05/hello-world-cicd/actions/workflows/ci.yml)
-[![CD](https://github.com/itsample05/hello-world-cicd/actions/workflows/cd.yml/badge.svg)](https://github.com/itsample05/hello-world-cicd/actions/workflows/cd.yml)
 
 A Spring Boot "Hello World" service, packaged as a container and deployed to Amazon ECS on Fargate behind a public Application Load Balancer. Every change is validated by GitHub Actions; only approved `main` builds are published to Docker Hub and rolled out to AWS.
 
@@ -54,7 +52,23 @@ The ECS service's desired count is derived from the number of private subnets. W
 
 ## CI/CD workflow
 
-| Event | Workflow activity | Docker Hub / AWS effect |
+
+
+| Event | Workflow activity | Docker Hub / AWS effect |```mermaid
+flowchart LR
+    A[Developer push] --> B{Branch or PR?}
+    B -->|Feature branch / PR| C[CI: Maven tests and quality checks]
+    C --> D[Docker build and Trivy scan]
+    D --> E[No image push or AWS deployment]
+    B -->|Merge to main| F[CI: tests and quality report]
+    F --> G[Build, scan, and push SHA-tagged image]
+    G --> H[Deploy dev]
+    H --> I[Approval gate]
+    I --> J[Deploy int]
+    J --> K[Approval gate]
+    K --> L[Deploy production]
+```
+
 | --- | --- | --- |
 | Push to any non-`main` branch | Maven tests, package build, Checkstyle, SpotBugs, JaCoCo report | None — no container build, image push, or deployment |
 | Pull request targeting `main` | Same Maven validation, plus a local Docker build and Trivy vulnerability scan | None — no Docker Hub login/push or deployment |
