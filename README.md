@@ -52,9 +52,7 @@ The ECS service's desired count is derived from the number of private subnets. W
 
 ## CI/CD workflow
 
-
-
-| Event | Workflow activity | Docker Hub / AWS effect |```mermaid
+```mermaid
 flowchart LR
     A[Developer push] --> B{Branch or PR?}
     B -->|Feature branch / PR| C[CI: Maven tests and quality checks]
@@ -69,14 +67,16 @@ flowchart LR
     K --> L[Deploy production]
 ```
 
-| --- | --- | --- |
-| Push to any non-`main` branch | Maven tests, package build, Checkstyle, SpotBugs, JaCoCo report | None — no container build, image push, or deployment |
-| Pull request targeting `main` | Same Maven validation, plus a local Docker build and Trivy vulnerability scan | None — no Docker Hub login/push or deployment |
-| Push or merge to `main` | Full pipeline: Maven validation, quality report published to Pages, Docker build, Trivy scan, immutable SHA-tagged image push, automatic ECS deployment to `dev`, then sequential promotion to `int` and `production` | Publishes to Docker Hub and deploys to ECS |
+| Requirement | Where it's implemented |
+| --- | --- |
+| Modular, reusable workflows | [`static-analysis.yml`](.github/workflows/static-analysis.yml), [`build-and-push.yml`](.github/workflows/build-and-push.yml), [`deploy-aws.yml`](.github/workflows/deploy-aws.yml) are reusable workflows composed by [`ci.yml`](.github/workflows/ci.yml) and [`cd.yml`](.github/workflows/cd.yml) |
+| Trigger on feature-branch push and main merge | `ci.yml`: any non-`main` push + PRs into `main`. `cd.yml`: pushes to `main` |
+| Static code analysis | Checkstyle, SpotBugs, and JaCoCo via Maven |
+| Publish analysis results to GitHub Pages | `static-analysis.yml` builds a quality dashboard and deploys it with `actions/deploy-pages`, only from `main` |
+| Compile Java code | `mvn verify` in the static-analysis job |
+| Build Docker image and push to Docker Hub | `build-and-push.yml`; image is built and scanned on every PR, but pushed only on merge to `main` |
+| Deploy as a publicly accessible service on AWS | The ECS Fargate service and public ALB are provisioned by `platform-infra`; `deploy-aws.yml` rolls out the new image |
 
-Image tags use the Git commit SHA, so ECS always deploys an immutable, traceable artifact. The Docker repository name is derived from the top-level Maven `artifactId` in `pom.xml` (currently `hello-world`).
-
-The infrastructure `app_name` identifies the ECS resources and can include the environment suffix (for example, `hello-world-dev`). The Docker image name is independently derived from the Maven `artifactId` (`hello-world`), so the same image can be promoted across environments.
 
 ## AWS design decisions
 
