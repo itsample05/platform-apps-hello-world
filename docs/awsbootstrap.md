@@ -21,8 +21,6 @@ Commit `dev.env` to a branch and review it in a pull request. It contains deploy
 | `ecs_task_family` | ECS task-definition family from `platform-infra` |
 | `dockerhub_username` | Docker Hub username or namespace; add manually |
 
-`app_name`, `application_url`, `container_image`, and `github_repository` may be kept in the file as useful deployment context, but are not consumed by the application workflow. In particular, `app_name = "hello-world-dev"` is valid: it is an infrastructure resource name, while the Docker image is derived from this Maven project's `artifactId` (`hello-world`).
-
 To add promotion environments, apply the corresponding `platform-infra` configurations and create `.github/deployments/int.env` and `.github/deployments/production.env` using the same format.
 
 ### 2. Configure GitHub
